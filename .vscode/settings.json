@@ -1,0 +1,20 @@
+{
+    "files.associations": {
+        "cmath": "c",
+        "array": "c",
+        "bitset": "c",
+        "string_view": "c",
+        "format": "c",
+        "initializer_list": "c",
+        "ranges": "c",
+        "span": "c",
+        "valarray": "c"
+    },
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/vando/code/c/raylibTests",
+            "binaryPath": "/home/vando/code/c/raylibTests/raylib-test",
+            "binaryArgs": []
+        }
+    ]
+}

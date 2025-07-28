@@ -13,7 +13,7 @@
 #define PI 3.14159265358979323846
 #endif
 
-const float G = 1.0f;
+float G = 1.0f;
 
 
 
@@ -240,12 +240,100 @@ void handleCollisions(ObjectList* list) {
     }
 }
 
-void handleGUI() {
+int makeInfoLabel(Rectangle* panel, int lineHeight, int length, const char* text) {
+    Rectangle infoLabelBounds = { 
+        panel->x + ((panel->width-length)/2), 
+        lineHeight, 
+        length, 
+        10 
+    };
+    GuiLabel(infoLabelBounds, text);
+    
+    return lineHeight + infoLabelBounds.height;
+}
+
+int makeLabelAndSlider(Rectangle* panel, int lineHeight, const char* labelText, float* value, float minValue, float maxValue) {
+    int optionsPaddingLeft = 10;
+
+    Rectangle labelBounds = { 
+        panel->x + optionsPaddingLeft, 
+        lineHeight, 
+        75, 
+        10 
+    };
+    GuiLabel(labelBounds, labelText);
+    
+    Rectangle countBounds = { 
+        panel->x + optionsPaddingLeft + labelBounds.width, 
+        lineHeight, 
+        50, 
+        10 
+    };
+    GuiLabel(countBounds, TextFormat("%.0f", *value));
+    
+    Rectangle sliderBounds = { 
+        labelBounds.x + labelBounds.width + countBounds.width + 25, 
+        lineHeight, 
+        100, 
+        10 
+    };
+    GuiSlider(sliderBounds, TextFormat("%.0f", minValue), TextFormat("%.0f", maxValue), value, minValue, maxValue);
+
+    return lineHeight + sliderBounds.height;
+}
+
+int makeHeaderLabel(Rectangle* panel, int lineHeight, int length, const char* text) {
+    Rectangle headerBounds = { 
+        panel->x + ((panel->width-length)/2), 
+        lineHeight, 
+        length, 
+        20 
+    };
+    GuiLabel(headerBounds, text);
+    
+    return lineHeight + headerBounds.height;
+}
+
+void handleGUI(ObjectList* objectList) {
+
+    //Background
     Rectangle panel = { 10, 10, 300, GetScreenHeight()-20 };
 
     DrawRectangleRounded(panel, 0.1f, 100, Fade(WHITE, 0.1f));
     DrawRectangleRoundedLines(panel, 0.1f, 100, Fade(WHITE, 0.4f));
 
+    //Foreground
+    int optionsPaddingLeft = 10;
+
+    int paddingTop = 20;
+    int lineHeight = panel.y + paddingTop;
+
+    paddingTop = 20;
+    lineHeight = makeLabelAndSlider(
+        &panel, lineHeight, "graviation: ", &G, 0.0f, 1000.0f
+    )+ paddingTop;
+    
+    int createLength = 74;
+    paddingTop = 0;
+    lineHeight = makeHeaderLabel(
+        &panel, lineHeight, createLength, "-- CREATE --"
+    ) + paddingTop;
+
+    int infoLength = 200;
+    paddingTop = 20;
+    lineHeight = makeInfoLabel(&panel, lineHeight, infoLength, "Right click to create a random object.") + paddingTop;
+
+    static float massValue = 50.0f;
+    static float radiusValue = 10.0f;
+    paddingTop = 10;
+
+    lineHeight = makeLabelAndSlider(
+        &panel, lineHeight, "mass: ", &massValue, 0.0f, 1000.0f
+    ) + paddingTop;
+
+    lineHeight = makeLabelAndSlider(
+        &panel, lineHeight, "radius: ", &radiusValue, 0.0f, 100.0f
+    ) + paddingTop;
 }
 
 
@@ -338,7 +426,7 @@ int main(){
         BeginDrawing();
             ClearBackground(BLACK);
             drawGravitationalObjectArray(objectList);
-            handleGUI();
+            handleGUI(objectList);
         EndDrawing();
 
         if (DEBUG_MODE) {

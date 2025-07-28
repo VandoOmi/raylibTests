@@ -2,4 +2,4 @@
 
 make
 
-./raylib-test
+./Graviton

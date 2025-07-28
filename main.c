@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define RAYGUI_IMPLEMENTATION
+#include <raygui.h>
+
 
 #define DEBUG_MODE 0
 #define EXAMPELS 0
@@ -237,6 +240,14 @@ void handleCollisions(ObjectList* list) {
     }
 }
 
+void handleGUI() {
+    Rectangle panel = { 10, 10, 300, GetScreenHeight()-20 };
+
+    DrawRectangleRounded(panel, 0.1f, 100, Fade(WHITE, 0.1f));
+    DrawRectangleRoundedLines(panel, 0.1f, 100, Fade(WHITE, 0.4f));
+
+}
+
 
 
 int main(){
@@ -320,12 +331,14 @@ int main(){
             calcGravitation(objectList);
             moveObjects(objectList, t_tick);
             handleCollisions(objectList);
+            
             t_temp -= t_tick;
         }
         
         BeginDrawing();
             ClearBackground(BLACK);
             drawGravitationalObjectArray(objectList);
+            handleGUI();
         EndDrawing();
 
         if (DEBUG_MODE) {

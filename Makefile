@@ -1,5 +1,5 @@
 # Name des Ausgabefiles
-TARGET = raylib-test
+TARGET = Graviton
 
 # Compiler
 CC = cc

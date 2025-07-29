@@ -13,7 +13,9 @@
 #define PI 3.14159265358979323846
 #endif
 
-float G = 1.0f;
+float G = 0.0f;
+float massValue = 50.0f;
+float radiusValue = 10.0f;
 
 
 
@@ -119,7 +121,6 @@ ObjectList* createObjectList() {
     return list;
 }
 
-
 void addObjectList(GravitationalObject* obj, ObjectList* oList) {
     GravitationalObject** temp_array = realloc(oList->gObjs, (oList->size+1) * sizeof(GravitationalObject*));
     
@@ -145,16 +146,33 @@ void freeObjectList(ObjectList* oList) {
 GravitationalObject* createRandomObjectAt(float x, float y) {
     GravitationalObject* obj = malloc(sizeof(GravitationalObject));
 
-    obj->name = "Custom";
-    obj->mass = GetRandomValue(1, 100);  // Masse 5–25
-    obj->radius = 3 + (obj->mass / 20.0f);  // größer bei mehr Masse
+    obj->name = "Random";
+    obj->mass = GetRandomValue(1, 100);  
+    obj->radius = 3 + (obj->mass / 20.0f);  
     obj->color = (Color){ GetRandomValue(100,255), GetRandomValue(100,255), GetRandomValue(100,255), 255 };
     obj->posX = x;
     obj->posY = y;
     obj->forceX = 0;
     obj->forceY = 0;
-    obj->velX = GetRandomValue(-10, 10);  // kleine Anfangsgeschwindigkeit
+    obj->velX = GetRandomValue(-10, 10);  
     obj->velY = GetRandomValue(-10, 10);
+
+    return obj;
+}
+
+GravitationalObject* createObjectAt(float x, float y, float mass, float radius) {
+    GravitationalObject* obj = malloc(sizeof(GravitationalObject));
+
+    obj->name = "Custom";
+    obj->mass = mass;  
+    obj->radius = radius;  
+    obj->color = (Color){ GetRandomValue(100,255), GetRandomValue(100,255), GetRandomValue(100,255), 255 };
+    obj->posX = x;
+    obj->posY = y;
+    obj->forceX = 0;
+    obj->forceY = 0;
+    obj->velX = 0;  
+    obj->velY = 0;
 
     return obj;
 }
@@ -310,7 +328,7 @@ void handleGUI(ObjectList* objectList) {
 
     paddingTop = 20;
     lineHeight = makeLabelAndSlider(
-        &panel, lineHeight, "graviation: ", &G, 0.0f, 1000.0f
+        &panel, lineHeight, "graviation: ", &G, 0.0f, 200.0f
     )+ paddingTop;
     
     int createLength = 74;
@@ -331,12 +349,35 @@ void handleGUI(ObjectList* objectList) {
         &panel, lineHeight, "mass: ", &massValue, 0.0f, 1000.0f
     ) + paddingTop;
 
+    paddingTop = 20;
     lineHeight = makeLabelAndSlider(
         &panel, lineHeight, "radius: ", &radiusValue, 0.0f, 100.0f
     ) + paddingTop;
+
+    infoLength = 276;
+    lineHeight = makeInfoLabel(
+        &panel, lineHeight, infoLength, "Left click to create an object with given parameters."
+    ) + paddingTop;
 }
 
-
+void handleInput(ObjectList* objectList) {
+    if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+            Vector2 mouse = GetMousePosition();
+            GravitationalObject* newObj = createRandomObjectAt(mouse.x, mouse.y);
+            addObjectList(newObj, objectList);
+            if (DEBUG_MODE) {
+                printf("[CLICK] Neues Random Objekt erstellt bei %.2f, %.2f\n", mouse.x, mouse.y);
+            }
+        }
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            Vector2 mouse = GetMousePosition();
+            GravitationalObject* newObj = createObjectAt(mouse.x, mouse.y, massValue, radiusValue);
+            addObjectList(newObj, objectList);
+            if (1) {
+                printf("[CLICK] Neues Objekt erstellt bei %.2f, %.2f mit Masse %.2f und Radius %.2f\n", mouse.x, mouse.y, massValue, radiusValue);
+            }
+        }
+}
 
 int main(){
     const int windowSizeX = 1200;
@@ -406,14 +447,7 @@ int main(){
             printf("---- Frame Start | deltaTime = %.5f ----\n", t_delta);
         }
 
-        if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-            Vector2 mouse = GetMousePosition();
-            GravitationalObject* newObj = createRandomObjectAt(mouse.x, mouse.y);
-            addObjectList(newObj, objectList);
-            if (DEBUG_MODE) {
-                printf("[CLICK] Neues Objekt erstellt bei %.2f, %.2f\n", mouse.x, mouse.y);
-            }
-        }
+        handleInput(objectList);
 
         while (t_temp >= t_tick) {
             calcGravitation(objectList);

@@ -5,10 +5,10 @@ TARGET = Graviton
 CC = cc
 
 # Compiler-Flags mit Include-Pfad
-CFLAGS = -Wall -Wextra -Wpedantic -Iexternal/raygui/src
+CFLAGS = -Wall -Wextra -Wpedantic 
 
 # Raylib + andere Bibliotheken
-LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+LDFLAGS = -Iexternal/raygui/src -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 # Quellcode-Dateien
 SRC = main.c

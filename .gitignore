@@ -1,0 +1,44 @@
+# --- CMake build folder ---
+build/
+[Cc]MakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+install_manifest.txt
+
+# --- Visual Studio (Windows) ---
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.db
+*.opendb
+*.pdb
+*.ilk
+*.obj
+*.lib
+*.exe
+*.dll
+
+# --- macOS specific ---
+.DS_Store
+*.dSYM/
+
+# --- Linux specific ---
+*.o
+*.so
+*.out
+*.a
+
+# --- Logs / temporary ---
+*.log
+*.tmp
+*.bak
+*.swp
+
+# --- Editor configs (optional, falls nicht teilen gewünscht) ---
+.vscode/
+.idea/
+
+# --- Other ---
+*.cache

@@ -1,5 +1,8 @@
 #!/bin/bash
 
-make
-
-./Graviton
+mkdir build
+cd build
+cmake ..
+cmake --build .
+cd Debug
+./graviton

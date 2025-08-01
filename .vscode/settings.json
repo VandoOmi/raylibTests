@@ -9,7 +9,9 @@
         "ranges": "c",
         "span": "c",
         "valarray": "c",
-        "raygui.h": "c"
+        "raygui.h": "c",
+        "*.m": "c",
+        "string": "c"
     },
     "makefile.launchConfigurations": [
         {

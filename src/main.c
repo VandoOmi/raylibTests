@@ -16,8 +16,7 @@
 float G = 0.0f;
 float massValue = 50.0f;
 float radiusValue = 10.0f;
-
-
+Vector2 firstPos = { 0, 0 };
 
 typedef struct gravitationalObject
 {
@@ -137,10 +136,11 @@ void addObjectList(GravitationalObject* obj, ObjectList* oList) {
 
 void freeObjectList(ObjectList* oList) {
     for (int i = 0; i < oList->size; i++) {
-        //free(oList->gObjs[i]);  // Nur jetzt wieder erlaubt!
+        free(oList->gObjs[i]);
     }
     free(oList->gObjs);
     free(oList);  
+    
 }
 
 GravitationalObject* createRandomObjectAt(float x, float y) {
@@ -160,19 +160,19 @@ GravitationalObject* createRandomObjectAt(float x, float y) {
     return obj;
 }
 
-GravitationalObject* createObjectAt(float x, float y, float mass, float radius) {
+GravitationalObject* createObjectAt(Vector2* pos, float mass, float radius, Vector2* velocity) {
     GravitationalObject* obj = malloc(sizeof(GravitationalObject));
 
     obj->name = "Custom";
     obj->mass = mass;  
     obj->radius = radius;  
     obj->color = (Color){ GetRandomValue(100,255), GetRandomValue(100,255), GetRandomValue(100,255), 255 };
-    obj->posX = x;
-    obj->posY = y;
+    obj->posX = pos->x;
+    obj->posY = pos->y;
     obj->forceX = 0;
     obj->forceY = 0;
-    obj->velX = 0;  
-    obj->velY = 0;
+    obj->velX = velocity->x;  
+    obj->velY = velocity->y;
 
     return obj;
 }
@@ -315,7 +315,7 @@ int makeHeaderLabel(Rectangle* panel, int lineHeight, int length, const char* te
 void handleGUI(ObjectList* objectList) {
 
     //Background
-    Rectangle panel = { 10, 10, 300, GetScreenHeight()-20 };
+    Rectangle panel = { 10, 10, 300, 190};
 
     DrawRectangleRounded(panel, 0.1f, 100, Fade(WHITE, 0.1f));
     DrawRectangleRoundedLines(panel, 0.1f, 100, Fade(WHITE, 0.4f));
@@ -327,61 +327,93 @@ void handleGUI(ObjectList* objectList) {
     int lineHeight = panel.y + paddingTop;
 
     paddingTop = 20;
-    lineHeight = makeLabelAndSlider(
+    lineHeight = makeLabelAndSlider
+    (
         &panel, lineHeight, "graviation: ", &G, 0.0f, 200.0f
     )+ paddingTop;
     
     int createLength = 74;
     paddingTop = 0;
-    lineHeight = makeHeaderLabel(
+    lineHeight = makeHeaderLabel
+    (
         &panel, lineHeight, createLength, "-- CREATE --"
     ) + paddingTop;
 
     int infoLength = 200;
     paddingTop = 20;
-    lineHeight = makeInfoLabel(&panel, lineHeight, infoLength, "Right click to create a random object.") + paddingTop;
+    lineHeight = makeInfoLabel
+    (
+        &panel, lineHeight, infoLength, "Right-Click to create a random object."
+    ) + paddingTop;
 
     static float massValue = 50.0f;
     static float radiusValue = 10.0f;
     paddingTop = 10;
 
-    lineHeight = makeLabelAndSlider(
+    lineHeight = makeLabelAndSlider
+    (
         &panel, lineHeight, "mass: ", &massValue, 0.0f, 1000.0f
     ) + paddingTop;
 
     paddingTop = 20;
-    lineHeight = makeLabelAndSlider(
+    lineHeight = makeLabelAndSlider
+    (
         &panel, lineHeight, "radius: ", &radiusValue, 0.0f, 100.0f
     ) + paddingTop;
 
-    infoLength = 276;
-    lineHeight = makeInfoLabel(
-        &panel, lineHeight, infoLength, "Left click to create an object with given parameters."
+    paddingTop = 5;
+    infoLength = 120;
+    lineHeight = makeInfoLabel
+    (
+        &panel, lineHeight, infoLength, "[LEFT-CLICK + SHIFT]"
+    ) + paddingTop;
+    infoLength = 125;
+    lineHeight = makeInfoLabel
+    (
+        &panel, lineHeight, infoLength, "Create a custom object."
     ) + paddingTop;
 }
 
 void handleInput(ObjectList* objectList) {
-    if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-            Vector2 mouse = GetMousePosition();
-            GravitationalObject* newObj = createRandomObjectAt(mouse.x, mouse.y);
-            addObjectList(newObj, objectList);
-            if (DEBUG_MODE) {
-                printf("[CLICK] Neues Random Objekt erstellt bei %.2f, %.2f\n", mouse.x, mouse.y);
-            }
+    if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) 
+    {
+        Vector2 mouse = GetMousePosition();
+        GravitationalObject* newObj = createRandomObjectAt(mouse.x, mouse.y);
+        addObjectList(newObj, objectList);
+
+        if (1) 
+        {
+            printf("[CLICK] Neues Random Objekt erstellt bei %.2f, %.2f\n", mouse.x, mouse.y);
         }
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            Vector2 mouse = GetMousePosition();
-            GravitationalObject* newObj = createObjectAt(mouse.x, mouse.y, massValue, radiusValue);
-            addObjectList(newObj, objectList);
-            if (1) {
-                printf("[CLICK] Neues Objekt erstellt bei %.2f, %.2f mit Masse %.2f und Radius %.2f\n", mouse.x, mouse.y, massValue, radiusValue);
-            }
+    }
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT))
+    {
+        firstPos = GetMousePosition();
+
+        if (DEBUG_MODE) 
+        {
+            printf("[CLICK] Erste Position gesetzt bei %.2f, %.2f\n", firstPos.x, firstPos.y);
         }
+    }
+    else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT))  
+    {
+        Vector2 secondPos = GetMousePosition();
+        Vector2 velocity = { (secondPos.x - firstPos.x), (secondPos.y - firstPos.y) };
+        GravitationalObject* newObj = createObjectAt(&firstPos, massValue, radiusValue, &velocity);
+        addObjectList(newObj, objectList);
+
+        if (DEBUG_MODE) 
+        {
+            printf("[CLICK] Neues Objekt erstellt bei %.2f, %.2f mit Masse %.2f und Radius %.2f\n", 
+                firstPos.x, firstPos.y, newObj->mass, newObj->radius);
+        }
+    }
 }
 
 int main(){
     const int windowSizeX = 1200;
     const int windowSizeY = 1000;
+
 
     InitWindow(windowSizeX, windowSizeY, "Gravitations-Simulation");
 

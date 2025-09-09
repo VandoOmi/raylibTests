@@ -4,5 +4,5 @@ mkdir build
 cd build
 cmake ..
 cmake --build .
-cd Debug
+#cd Debug
 ./graviton

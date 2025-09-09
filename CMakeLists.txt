@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD 99)
 add_subdirectory(external/raylib)
 
 # Executable anlegen
-add_executable(graviton src/main3D.c)
+add_executable(graviton src/particle.c)
 
 # Mit Raylib linken
 target_link_libraries(graviton raylib)

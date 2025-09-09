@@ -15,15 +15,24 @@
 float G = 0.0f;
 float massValue = 50.0f;
 float radiusValue = 10.0f;
+int particleRadius = 1; // in km
 Vector3 firstPos = { 0, 0, 0 };
+float volume = 0.;
+
+enum element{
+    hydrogen = 8990,
+    helium = 17800,
+    oxygen = 142900,
+    carbon = 226700000,
+    neon = 89990,
+    iron = 787400000
+};
 
 typedef struct gravitationalObject
 {
     const char* name;
-    float mass;
+    enum element element;
     Vector3 position;
-    float radius;
-    Color color;
     Vector3 force;
     Vector3 velocity;
 } GravitationalObject;
@@ -34,10 +43,28 @@ typedef struct gList
     int size;
 } ObjectList;
 
-
+Color getColor(enum element element) {
+    Color color;
+    switch (element)
+    {
+        case 8990:
+            return RAYWHITE;
+        case 17800:
+            return RED;
+        case 142900:
+            return BLUE;
+        case 226700000:
+            return GRAY;
+        case 89990:
+            return PINK;
+        case 787400000:
+            return LIGHTGRAY;
+    }
+}
 
 void drawParticle(GravitationalObject *obj) {
-    DrawSphere((Vector3)obj->position, obj->radius, obj->color);
+
+    DrawSphere((Vector3)obj->position, particleRadius, getColor(obj->element));
 
     if (DEBUG_MODE) {
         printf("[DRAW] %s: pos=(%.2f, %.2f, %.2f)\n",
@@ -81,8 +108,10 @@ void calcGravitation(ObjectList* oList) {
             float dZ = oList->gObjs[j]->position.z - oList->gObjs[i]->position.z;
             float r = sqrt(dX * dX + dY * dY + dZ * dZ);
 
+            float volume = ((4/3)*PI*particleRadius*particleRadius);
+
             if (r != 0) {
-                float f = (G * oList->gObjs[i]->mass * oList->gObjs[j]->mass) / (r * r);
+                float f = (G * volume * oList->gObjs[i]->element * volume * oList->gObjs[j]->element) / (r * r);
                 float forceX = f * (dX / r);
                 float forceY = f * (dY / r);
                 float forceZ = f * (dZ / r);
@@ -104,9 +133,9 @@ void calcGravitation(ObjectList* oList) {
 }
 
 void moveObject(GravitationalObject *obj, float deltaTime) {
-    float aX = obj->force.x/obj->mass;
-    float aY = obj->force.y/obj->mass;
-    float aZ = obj->force.z/obj->mass;
+    float aX = obj->force.x/(obj->element * volume);
+    float aY = obj->force.y/(obj->element * volume);
+    float aZ = obj->force.z/(obj->element * volume);
 
     obj->velocity.x += aX * deltaTime;
     obj->velocity.y += aY * deltaTime;
@@ -163,10 +192,10 @@ void freeObjectList(ObjectList* oList) {
 GravitationalObject* createRandomParticleAt(Vector3* pos) {
     GravitationalObject* obj = malloc(sizeof(GravitationalObject));
 
+    enum element elements[] = {hydrogen, helium, oxygen, carbon, neon, iron};
+
     obj->name = "Random";
-    obj->mass = GetRandomValue(1, 100);  
-    obj->radius = 3 + (obj->mass / 20.0f);  
-    obj->color = (Color){ GetRandomValue(100,255), GetRandomValue(100,255), GetRandomValue(100,255), 255 };
+    obj->element = elements[rand() % 6];
     obj->position = *pos;
     obj->force.x = 0;
     obj->force.y = 0;
@@ -178,13 +207,11 @@ GravitationalObject* createRandomParticleAt(Vector3* pos) {
     return obj;
 }
 
-GravitationalObject* createObjectAt(Vector3* pos, float mass, float radius, Vector3* velocity) {
+GravitationalObject* createParticleAt(Vector3* pos, enum element element, Vector3* velocity) {
     GravitationalObject* obj = malloc(sizeof(GravitationalObject));
 
     obj->name = "Custom";
-    obj->mass = mass;  
-    obj->radius = radius;  
-    obj->color = (Color){ GetRandomValue(100,255), GetRandomValue(100,255), GetRandomValue(100,255), 255 };
+    obj->element = element;
     obj->position = *pos;
     obj->force.x = 0;
     obj->force.y = 0;
@@ -233,47 +260,21 @@ void handleCollisions(ObjectList* list) {
             float dz = a->position.z - b->position.z;
             float distance = sqrtf(dx*dx + dy*dy + dz*dz);
             if (DEBUG_MODE) {
-                    printf("Checking collision between '%s' and '%s': distance = %.2f, sum of radii = %.2f\n",
-                    a->name, b->name, distance, a->radius + b->radius);
+                    printf("Checking collision between '%s' and '%s': distance = %.2f",
+                    a->name, b->name, distance);
                 }
             
 
 
-            if (distance < a->radius + b->radius) {
-                // Kollision erkannt – neues Objekt erstellen
-                GravitationalObject* merged = malloc(sizeof(GravitationalObject));
+            if (distance <= particleRadius*2) {
 
-                merged->mass = a->mass + b->mass;
-
-                // Schwerpunkt
-                merged->position.x = (a->position.x * a->mass + b->position.x * b->mass) / merged->mass;
-                merged->position.y = (a->position.y * a->mass + b->position.y * b->mass) / merged->mass;
-                merged->position.z = (a->position.z * a->mass + b->position.z * b->mass) / merged->mass;
-
-                // Impulserhaltung (vereinfacht)
-                merged->velocity.x = (a->velocity.x * a->mass + b->velocity.x * b->mass) / merged->mass;
-                merged->velocity.y = (a->velocity.y * a->mass + b->velocity.y * b->mass) / merged->mass;
-                merged->velocity.z = (a->velocity.z * a->mass + b->velocity.z * b->mass) / merged->mass;
+                a->velocity.x = a->velocity.x+b->velocity.x;
+                a->velocity.y = a->velocity.y+b->velocity.y;
+                a->velocity.z = a->velocity.z+b->velocity.z;
+                b->velocity.x = a->velocity.x+b->velocity.x;
+                b->velocity.y = a->velocity.y+b->velocity.y;
+                b->velocity.z = a->velocity.z+b->velocity.z;
                 
-                // Radius proportional zur Wurzel der Masse (optional)
-                float flaecheA = PI * (a->radius * a->radius);
-                float flaecheB = PI * (b->radius * b->radius);
-                merged->radius = sqrtf((flaecheA+flaecheB)/PI);
-                // Farbe: die des größeren Objekts
-                merged->color = (a->mass > b->mass) ? a->color : b->color;
-
-                merged->force.x = 0;
-                merged->force.y = 0;
-                merged->force.z = 0;
-                merged->name = "merged";
-
-                // Alte Objekte entfernen
-                removeObjectAtIndex(list, j); // erst j!
-                removeObjectAtIndex(list, i);
-                addObjectList(merged, list);
-
-                // Restart wegen geänderter Liste
-                return handleCollisions(list);
             }
         }
     }
@@ -405,7 +406,7 @@ void handleInput(ObjectList* objectList, Camera3D* camera) {
         }
     }
 
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT))
+    /*if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT))
     {
         firstPos.x = GetMousePosition().x;
         firstPos.y = GetMousePosition().y;
@@ -419,7 +420,7 @@ void handleInput(ObjectList* objectList, Camera3D* camera) {
     {
         Vector2 secondPos = GetMousePosition();
         Vector3 velocity = { (secondPos.x - firstPos.x), (secondPos.y - firstPos.y) , 0. };
-        GravitationalObject* newObj = createObjectAt(&firstPos, massValue, radiusValue, &velocity);
+        GravitationalObject* newObj = createParticleAt(&firstPos, massValue, radiusValue, &velocity);
         addObjectList(newObj, objectList);
 
         if (DEBUG_MODE) 
@@ -427,12 +428,13 @@ void handleInput(ObjectList* objectList, Camera3D* camera) {
             printf("[CLICK] Neues Objekt erstellt bei %.2f, %.2f mit Masse %.2f und Radius %.2f\n", 
                 firstPos.x, firstPos.y, newObj->mass, newObj->radius);
         }
-    }
+    }*/
 }
 
 int main(){
     const int windowSizeX = 1200;
     const int windowSizeY = 1000;
+    volume = ((4/3)*PI*particleRadius*particleRadius);
 
 
     InitWindow(windowSizeX, windowSizeY, "Gravitations-Simulation");

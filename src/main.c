@@ -40,7 +40,7 @@ typedef struct gList
 
 
 
-void drawGravitationalObject(GravitationalObject *obj) {
+void drawParticle(GravitationalObject *obj) {
     DrawCircle((int)obj->posX, (int)obj->posY, obj->radius, obj->color);
 
     if (DEBUG_MODE) {
@@ -48,10 +48,10 @@ void drawGravitationalObject(GravitationalObject *obj) {
     }
 }
 
-void drawGravitationalObjectArray(ObjectList* oList) {
+void drawParticles(ObjectList* oList) {
     for (int i = 0; i < oList->size; i++) {
         GravitationalObject *gObj = oList->gObjs[i];
-        drawGravitationalObject(gObj);
+        drawParticle(gObj);
     }
 }
 
@@ -492,7 +492,7 @@ int main(){
         
         BeginDrawing();
             ClearBackground(BLACK);
-            drawGravitationalObjectArray(objectList);
+            drawParticles(objectList);
             handleGUI(objectList);
         EndDrawing();
 

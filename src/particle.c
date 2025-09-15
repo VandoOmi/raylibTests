@@ -17,7 +17,7 @@ float massValue = 50.0f;
 float radiusValue = 10.0f;
 int particleRadius = 1; // in km
 Vector3 firstPos = { 0, 0, 0 };
-float volume = 0.;
+float volume = 4.189;
 
 enum element{
     hydrogen = 8990,
@@ -43,19 +43,28 @@ typedef struct gList
     int size;
 } ObjectList;
 
+float rand_range(float min, float max) {
+    return min + (max - min) * (float)rand() / (float)RAND_MAX;
+}
+
+float getMass(enum element element){
+    return element * volume;
+}
+
+
 Color getColor(enum element element) {
     Color color;
     switch (element)
     {
-        case 8990:
+        case 37657223942950:
             return RAYWHITE;
-        case 17800:
+        case 74560465649000:
             return RED;
-        case 142900:
+        case 598578120294500:
             return BLUE;
-        case 226700000:
+        case 949598739473500000:
             return GRAY;
-        case 89990:
+        case 89990:             //////////////////////////////////////////////////////////////////////////////zu masse ändern;
             return PINK;
         case 787400000:
             return LIGHTGRAY;
@@ -109,14 +118,13 @@ void calcGravitation(ObjectList* oList) {
             float dX = oList->gObjs[j]->position.x - oList->gObjs[i]->position.x;
             float dY = oList->gObjs[j]->position.y - oList->gObjs[i]->position.y;
             float dZ = oList->gObjs[j]->position.z - oList->gObjs[i]->position.z;
-            float r = sqrt(dX * dX + dY * dY + dZ * dZ);
-
-            float volume = ((4.f/3.f)*PI*particleRadius*particleRadius*particleRadius);
+            float r2 = dX * dX + dY * dY + dZ * dZ;
+            float r = sqrt(r2);
 
             if (r > 1e-10f) {
-                float m1 = volume * oList->gObjs[i]->element;
-                float m2 = volume * oList->gObjs[j]->element;
-                float f = (G * m1 * m2) / (r * r);
+                float m1 = getMass(oList->gObjs[i]->element);
+                float m2 = getMass(oList->gObjs[j]->element);
+                float f = (G * m1 * m2) / r2;
 
                 float forceX = f * (dX / r);
                 float forceY = f * (dY / r);
@@ -482,6 +490,12 @@ int main(){
 
 
     ObjectList* objectList = createObjectList();
+
+    for(int i = 0; i <= 1000; i++){
+        Vector3 vec = (Vector3){rand_range(-1000,1000),rand_range(-1000,1000),rand_range(-1000,1000)};
+        GravitationalObject* obj = createRandomParticleAt(&vec);
+        addObjectList(obj, objectList);
+    }
 
     //loop
     float t_delta = 0;

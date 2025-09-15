@@ -12,7 +12,7 @@
 #define PI 3.14159265358979323846
 #endif
 
-float G = 0.0f;
+float G = 0.00000000006674f;
 float massValue = 50.0f;
 float radiusValue = 10.0f;
 int particleRadius = 1; // in km
@@ -79,15 +79,18 @@ void drawParticles(ObjectList* oList) {
     }
 }
 
-bool rayIntersectPlaneY(float y, Ray ray, Vector3 *hit)
-{
-    if (fabsf(ray.direction.y) < 1e-6f) return false; // Strahl ist fast parallel
-    float t = (y - ray.position.y) / ray.direction.y;
-    if (t <= 0.0f) return false; // Schnittpunkt liegt hinter der Kamera
-    hit->x = ray.position.x + ray.direction.x * t;
-    hit->y = y;
-    hit->z = ray.position.z + ray.direction.z * t;
-    return true;
+Vector3 GetMouseWorldPoint(const Camera3D *camera, float distance) {
+    // Hole den Strahl von der Kamera durch den Mauszeiger
+    Ray ray = GetMouseRay(GetMousePosition(), *camera);
+
+    // Berechne den Punkt: Startposition + Richtung * distance
+    Vector3 point = {
+        ray.position.x + ray.direction.x * distance,
+        ray.position.y + ray.direction.y * distance,
+        ray.position.z + ray.direction.z * distance
+    };
+
+    return point;
 }
 
 void calcGravitation(ObjectList* oList) {
@@ -108,10 +111,13 @@ void calcGravitation(ObjectList* oList) {
             float dZ = oList->gObjs[j]->position.z - oList->gObjs[i]->position.z;
             float r = sqrt(dX * dX + dY * dY + dZ * dZ);
 
-            float volume = ((4/3)*PI*particleRadius*particleRadius);
+            float volume = ((4.f/3.f)*PI*particleRadius*particleRadius*particleRadius);
 
-            if (r != 0) {
-                float f = (G * volume * oList->gObjs[i]->element * volume * oList->gObjs[j]->element) / (r * r);
+            if (r > 1e-10f) {
+                float m1 = volume * oList->gObjs[i]->element;
+                float m2 = volume * oList->gObjs[j]->element;
+                float f = (G * m1 * m2) / (r * r);
+
                 float forceX = f * (dX / r);
                 float forceY = f * (dY / r);
                 float forceZ = f * (dZ / r);
@@ -200,9 +206,9 @@ GravitationalObject* createRandomParticleAt(Vector3* pos) {
     obj->force.x = 0;
     obj->force.y = 0;
     obj->force.z = 0;
-    obj->velocity.x = GetRandomValue(-10, 10);  
-    obj->velocity.y = GetRandomValue(-10, 10); 
-    obj->velocity.z = GetRandomValue(-10, 10);
+    obj->velocity.x = GetRandomValue(-0.1, 0.1);  
+    obj->velocity.y = GetRandomValue(-0.1, 0.1); 
+    obj->velocity.z = GetRandomValue(-0.1, 0.1);
 
     return obj;
 }
@@ -268,13 +274,42 @@ void handleCollisions(ObjectList* list) {
 
             if (distance <= particleRadius*2) {
 
-                a->velocity.x = a->velocity.x+b->velocity.x;
-                a->velocity.y = a->velocity.y+b->velocity.y;
-                a->velocity.z = a->velocity.z+b->velocity.z;
-                b->velocity.x = a->velocity.x+b->velocity.x;
-                b->velocity.y = a->velocity.y+b->velocity.y;
-                b->velocity.z = a->velocity.z+b->velocity.z;
-                
+                Vector3 delta = { b->position.x - a->position.x,
+                  b->position.y - a->position.y,
+                  b->position.z - a->position.z };
+
+                float dist = sqrtf(delta.x*delta.x + delta.y*delta.y + delta.z*delta.z);
+                if (dist == 0.0f) dist = 1e-6f; // numerische Sicherheit
+
+                // Normalisierte Stoßrichtung
+                Vector3 n = { delta.x / dist, delta.y / dist, delta.z / dist };
+
+                // Relative Geschwindigkeit
+                Vector3 vRel = { a->velocity.x - b->velocity.x,
+                                a->velocity.y - b->velocity.y,
+                                a->velocity.z - b->velocity.z };
+
+                // Geschwindigkeit entlang der Stoßrichtung
+                float vDot = vRel.x*n.x + vRel.y*n.y + vRel.z*n.z;
+                if (vDot > 0) continue; // Objekte entfernen sich bereits
+
+                // Impuls ändern (vereinfachte 1:1 Masse)
+                float impulse = -2.0f * vDot / 2.0f;
+                a->velocity.x += impulse * n.x;
+                a->velocity.y += impulse * n.y;
+                a->velocity.z += impulse * n.z;
+                b->velocity.x -= impulse * n.x;
+                b->velocity.y -= impulse * n.y;
+                b->velocity.z -= impulse * n.z;
+
+                // Position minimal verschieben, damit sie sich nicht überlappen
+                float overlap = 2*particleRadius - dist;
+                a->position.x -= n.x * overlap / 2;
+                a->position.y -= n.y * overlap / 2;
+                a->position.z -= n.z * overlap / 2;
+                b->position.x += n.x * overlap / 2;
+                b->position.y += n.y * overlap / 2;
+                b->position.z += n.z * overlap / 2;
             }
         }
     }
@@ -351,7 +386,7 @@ void handleGUI(ObjectList* objectList) {
     paddingTop = 20;
     lineHeight = makeLabelAndSlider
     (
-        &panel, lineHeight, "graviation: ", &G, 0.0f, 200.0f
+        &panel, lineHeight, "graviation: ", &G, 0.0f, 0.000001f
     )+ paddingTop;
     
     int createLength = 74;
@@ -398,12 +433,9 @@ void handleGUI(ObjectList* objectList) {
 
 void handleInput(ObjectList* objectList, Camera3D* camera) {
     if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-        Ray ray = GetMouseRay(GetMousePosition(), *camera);
-        Vector3 pos;
-        if (rayIntersectPlaneY(0.0f, ray, &pos)) {
-            GravitationalObject* newObj = createRandomParticleAt(&pos);
-            addObjectList(newObj, objectList);
-        }
+        Vector3 pos = GetMouseWorldPoint(camera, 100);
+        GravitationalObject* newObj = createRandomParticleAt(&pos);
+        addObjectList(newObj, objectList);
     }
 
     /*if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT))
@@ -432,8 +464,8 @@ void handleInput(ObjectList* objectList, Camera3D* camera) {
 }
 
 int main(){
-    const int windowSizeX = 1200;
-    const int windowSizeY = 1000;
+    const int windowSizeX = 1960;
+    const int windowSizeY = 1080;
     volume = ((4/3)*PI*particleRadius*particleRadius);
 
 
@@ -479,7 +511,7 @@ int main(){
         BeginDrawing();
             ClearBackground(BLACK);
             BeginMode3D(camera);
-                DrawGrid(20, 1.0f);
+                DrawGrid(200, 10.0f);
                 drawParticles(objectList);
             EndMode3D();
             handleGUI(objectList);

@@ -20,7 +20,7 @@ int main(){
 
     ObjectList* objectList = createObjectList();
 
-    randomObjectsFor(1000, objectList, (Vector3){100, 100, 100});
+    randomObjectsFor(1000, objectList, (Vector3){10, 10, 10});
 
     //loop
     float t_delta = 0;

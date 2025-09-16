@@ -16,6 +16,7 @@ void addObjectList(GravitationalObject* obj, ObjectList* objList);
 void freeObjectList(ObjectList* objList);
 
 void randomObjectsFor(int count, ObjectList* objList, Vector3 room);
+GravitationalObject* createRandomParticleAt(Vector3* pos);
 
 // Input Prossesing
 void handleInput(ObjectList* objList, Camera3D* camera);

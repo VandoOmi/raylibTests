@@ -1,17 +1,7 @@
 #include "particle.h"
-/*#include <raylib.h> 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#define RAYGUI_IMPLEMENTATION
-#include <raygui.h>*/
-
-
 
 const float G = 6.67430e-11f;
 const int PARTICLERADIUS = 1; // in km
-const float CELL_SIZE = 50.0f;
 #define HASH_SIZE 10007
 
 Vector3 firstPos = { 0, 0, 0 };
@@ -50,10 +40,10 @@ unsigned int hashCell(int x, int y, int z) {
 }
 
 // Objekt einer Zelle hinzufügen
-void insertObject(SpatialHash* grid, GravitationalObject* obj) {
-    int cx = (int)floor(obj->position.x / CELL_SIZE);
-    int cy = (int)floor(obj->position.y / CELL_SIZE);
-    int cz = (int)floor(obj->position.z / CELL_SIZE);
+void insertObject(SpatialHash* grid, GravitationalObject* obj, float cellSize) {
+    int cx = (int)floor(obj->position.x / cellSize);
+    int cy = (int)floor(obj->position.y / cellSize);
+    int cz = (int)floor(obj->position.z / cellSize);
 
     unsigned int h = hashCell(cx, cy, cz);
 
@@ -80,14 +70,6 @@ typedef struct ObjectList
     GravitationalObject** gObjs;
     int size;
 } ObjectList;
-
-
-
-float rand_range(float min, float max) {
-    return min + (max - min) * (float)rand() / (float)RAND_MAX;
-}
-
-
 
 Color getColor(enum element element) {
     Color color;
@@ -146,9 +128,11 @@ void CalculateGravitation(ObjectList* oList) {
         oList->gObjs[i]->force.z = 0.0f;
     }
 
+    float cellSize = 20.f;
+
     SpatialHash grid = {0};
     for (int i = 0; i < oList->size; i++) {
-        insertObject(&grid, oList->gObjs[i]);
+        insertObject(&grid, oList->gObjs[i], cellSize);
     }
 
     for (int h = 0; h < HASH_SIZE; h++) {
@@ -160,9 +144,9 @@ void CalculateGravitation(ObjectList* oList) {
                 for (int dy = -1; dy <= 1; dy++) {
                     for (int dz = -1; dz <= 1; dz++) {
                         unsigned int nh = hashCell(
-                            (int)floor(a->position.x / CELL_SIZE) + dx,
-                            (int)floor(a->position.y / CELL_SIZE) + dy,
-                            (int)floor(a->position.z / CELL_SIZE) + dz
+                            (int)floor(a->position.x / cellSize) + dx,
+                            (int)floor(a->position.y / cellSize) + dy,
+                            (int)floor(a->position.z / cellSize) + dz
                         );
 
                         CellEntry* neighbor = grid.table[nh];
@@ -297,8 +281,8 @@ GravitationalObject* createParticleAt(Vector3* pos, enum element element, Vector
 }
 
 void randomObjectsFor(int count, ObjectList* objList, Vector3 room) {
-    for(int i = 0; i >= count; i++) {
-        Vector3 pos = {rand_range(room.x*-1, room.x), rand_range(room.x*-1, room.x), rand_range(room.x*-1, room.x)};
+    for(int i = 0; i < count; i++) {
+        Vector3 pos = {GetRandomValue(room.x*-1, room.x), GetRandomValue(room.x*-1, room.x), GetRandomValue(room.x*-1, room.x)};
         GravitationalObject* obj = createRandomParticleAt(&pos);
         addObjectList(obj, objList);
     }
@@ -333,10 +317,11 @@ void removeObjectAtIndex(ObjectList* list, int index) {
 
 void CalculateCollision(ObjectList* list) {
     SpatialHash grid = {0};
+    float cellSize = 2.f;
 
     // 1. Objekte ins Grid einfügen
     for (int i = 0; i < list->size; i++) {
-        insertObject(&grid, list->gObjs[i]);
+        insertObject(&grid, list->gObjs[i], cellSize);
     }
 
     // 2. Kollisionsprüfungen
@@ -352,9 +337,9 @@ void CalculateCollision(ObjectList* list) {
                     for (int dz = -1; dz <= 1; dz++) {
 
                         unsigned int nh = hashCell(
-                            (int)floor(a->position.x / CELL_SIZE) + dx,
-                            (int)floor(a->position.y / CELL_SIZE) + dy,
-                            (int)floor(a->position.z / CELL_SIZE) + dz
+                            (int)floor(a->position.x / cellSize) + dx,
+                            (int)floor(a->position.y / cellSize) + dy,
+                            (int)floor(a->position.z / cellSize) + dz
                         );
 
                         CellEntry* neighbor = grid.table[nh];

@@ -7,14 +7,18 @@ set(CMAKE_C_STANDARD 99)
 # Raylib als Submodule hinzufügen
 add_subdirectory(external/raylib)
 
+add_library(gl3w external/gl3w/src/gl3w.c)
+target_include_directories(gl3w PUBLIC external/gl3w/include)
+
 # Executable anlegen
 add_executable(graviton
     src/main.c 
     src/particle.c
+    src/compute.c
 )
 
 # Mit Raylib linken
-target_link_libraries(graviton raylib)
+target_link_libraries(graviton raylib gl3w)
 
 # Raygui-Header einbinden
 target_include_directories(graviton PRIVATE ${CMAKE_SOURCE_DIR}/external/raygui/src)

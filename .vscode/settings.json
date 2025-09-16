@@ -11,7 +11,9 @@
         "valarray": "c",
         "raygui.h": "c",
         "*.m": "c",
-        "string": "c"
+        "string": "c",
+        "raylib.h": "c",
+        "stdio.h": "c"
     },
     "makefile.launchConfigurations": [
         {

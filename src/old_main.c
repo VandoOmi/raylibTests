@@ -48,14 +48,14 @@ void drawParticle(GravitationalObject *obj) {
     }
 }
 
-void drawParticles(ObjectList* oList) {
+void DrawParticles(ObjectList* oList) {
     for (int i = 0; i < oList->size; i++) {
         GravitationalObject *gObj = oList->gObjs[i];
         drawParticle(gObj);
     }
 }
 
-void calcGravitation(ObjectList* oList) {
+void CalculateGravitation(ObjectList* oList) {
     for (int i = 0; i < oList->size; i++) {
         oList->gObjs[i]->forceX = 0.0f;
         oList->gObjs[i]->forceY = 0.0f;
@@ -107,7 +107,7 @@ void moveObject(GravitationalObject *obj, float deltaTime) {
     }
 }
 
-void moveObjects(ObjectList* oList, float deltaTime) {
+void MoveParticles(ObjectList* oList, float deltaTime) {
     for (int i = 0; i < oList->size; i++) {
         moveObject(oList->gObjs[i], deltaTime);
     }
@@ -204,7 +204,7 @@ void removeObjectAtIndex(ObjectList* list, int index) {
     }
 }
 
-void handleCollisions(ObjectList* list) {
+void CalculateCollision(ObjectList* list) {
     for (int i = 0; i < list->size; i++) {
         GravitationalObject* a = list->gObjs[i];
 
@@ -252,7 +252,7 @@ void handleCollisions(ObjectList* list) {
                 addObjectList(merged, list);
 
                 // Restart wegen geänderter Liste
-                return handleCollisions(list);
+                return CalculateCollision(list);
             }
         }
     }
@@ -483,16 +483,16 @@ int main(){
         handleInput(objectList);
 
         while (t_temp >= t_tick) {
-            calcGravitation(objectList);
-            moveObjects(objectList, t_tick);
-            handleCollisions(objectList);
+            CalculateGravitation(objectList);
+            MoveParticles(objectList, t_tick);
+            CalculateCollision(objectList);
             
             t_temp -= t_tick;
         }
         
         BeginDrawing();
             ClearBackground(BLACK);
-            drawParticles(objectList);
+            DrawParticles(objectList);
             handleGUI(objectList);
         EndDrawing();
 

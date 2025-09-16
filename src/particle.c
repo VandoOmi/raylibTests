@@ -25,7 +25,7 @@ enum element{
     iron = 3298418600
 };
 
-typedef struct gravitationalObject
+typedef struct GravitationalObject
 {
     const char* name;
     enum element element;
@@ -75,15 +75,18 @@ void freeSpatialHash(SpatialHash* grid) {
     }
 }
 
-typedef struct gList
+typedef struct ObjectList
 {
     GravitationalObject** gObjs;
     int size;
 } ObjectList;
 
+
+
 float rand_range(float min, float max) {
     return min + (max - min) * (float)rand() / (float)RAND_MAX;
 }
+
 
 
 Color getColor(enum element element) {
@@ -115,7 +118,7 @@ void drawParticle(GravitationalObject *obj) {
     }
 }
 
-void drawParticles(ObjectList* oList) {
+void DrawParticles(ObjectList* oList) {
     for (int i = 0; i < oList->size; i++) {
         GravitationalObject *gObj = oList->gObjs[i];
         drawParticle(gObj);
@@ -136,7 +139,7 @@ Vector3 GetMouseWorldPoint(const Camera3D *camera, float distance) {
     return point;
 }
 
-void calcGravitation(ObjectList* oList) {
+void CalculateGravitation(ObjectList* oList) {
     for (int i = 0; i < oList->size; i++) {
         oList->gObjs[i]->force.x = 0.0f;
         oList->gObjs[i]->force.y = 0.0f;
@@ -225,7 +228,7 @@ void moveObject(GravitationalObject *obj, float deltaTime) {
     }
 }
 
-void moveObjects(ObjectList* oList, float deltaTime) {
+void MoveParticles(ObjectList* oList, float deltaTime) {
     for (int i = 0; i < oList->size; i++) {
         moveObject(oList->gObjs[i], deltaTime);
     }
@@ -293,6 +296,14 @@ GravitationalObject* createParticleAt(Vector3* pos, enum element element, Vector
     return obj;
 }
 
+void randomObjectsFor(int count, ObjectList* objList, Vector3 room) {
+    for(int i = 0; i >= count; i++) {
+        Vector3 pos = {rand_range(room.x*-1, room.x), rand_range(room.x*-1, room.x), rand_range(room.x*-1, room.x)};
+        GravitationalObject* obj = createRandomParticleAt(&pos);
+        addObjectList(obj, objList);
+    }
+}
+
 void removeObjectAtIndex(ObjectList* list, int index) {
     if (index < 0 || index >= list->size) return;
 
@@ -320,7 +331,7 @@ void removeObjectAtIndex(ObjectList* list, int index) {
     }
 }
 
-void handleCollisions(ObjectList* list) {
+void CalculateCollision(ObjectList* list) {
     SpatialHash grid = {0};
 
     // 1. Objekte ins Grid einfügen

@@ -1,7 +1,8 @@
 #ifndef PARTICLE_H
 #define PARTICLE_H
 
-#include "raylib.h"
+#include <raylib.h> 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -20,16 +21,14 @@ void randomObjectsFor(int count, ObjectList* objList, Vector3 room);
 void handleInput(ObjectList* objList, Camera3D* camera);
 
 //Changing Data
-void calcGraviation(ObjectList* objList);
-void moveObjects(ObjectList* objList, float deltaTime);
-void handleCollisions(ObjectList* objList);
+void CalculateGravitation(ObjectList* objList);
+void MoveParticles(ObjectList* objList, float deltaTime);
+void CalculateCollision(ObjectList* objList);
 
 //Drawing
-void drawParticals(ObjectList* objList);
+void DrawParticles(ObjectList* objList);
 
 //Util
-float rand_range();
-
-
+float rand_range(float min, float max);
 
 #endif

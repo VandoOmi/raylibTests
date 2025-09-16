@@ -40,9 +40,9 @@ int main(){
         handleInput(objectList, &camera);
 
         while (t_temp >= t_tick) {
-            calcGravitation(objectList);
-            moveObjects(objectList, t_tick);
-            handleCollisions(objectList);
+            CalculateGravitation(objectList);
+            MoveParticles(objectList, t_tick);
+            CalculateCollision(objectList);
             
             t_temp -= t_tick;
         }
@@ -51,7 +51,7 @@ int main(){
             ClearBackground(BLACK);
             BeginMode3D(camera);
                 DrawGrid(200, 10.0f);
-                drawParticles(objectList);
+                DrawParticles(objectList);
             EndMode3D();
             //handleGUI(objectList);
         EndDrawing();

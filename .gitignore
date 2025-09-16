@@ -37,8 +37,8 @@ install_manifest.txt
 *.swp
 
 # --- Editor configs (optional, falls nicht teilen gewünscht) ---
-.vscode/
-.idea/
+.vscode/*
+.idea/*
 
 # --- Other ---
 *.cache

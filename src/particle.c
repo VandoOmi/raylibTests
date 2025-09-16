@@ -1,31 +1,28 @@
-#include <raylib.h> 
+#include "particle.h"
+/*#include <raylib.h> 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define RAYGUI_IMPLEMENTATION
-#include <raygui.h>
+#include <raygui.h>*/
 
 
-#define DEBUG_MODE 0
-#ifndef PI
-#define PI 3.14159265358979323846
-#endif
 
-float G = 0.00000000006674f;
-float massValue = 50.0f;
-float radiusValue = 10.0f;
-int particleRadius = 1; // in km
+const float G = 6.67430e-11f;
+const int PARTICLERADIUS = 1; // in km
+const float CELL_SIZE = 50.0f;
+#define HASH_SIZE 10007
+
 Vector3 firstPos = { 0, 0, 0 };
-float volume = 4.189;
 
 enum element{
-    hydrogen = 8990,
-    helium = 17800,
-    oxygen = 142900,
-    carbon = 226700000,
-    neon = 89990,
-    iron = 787400000
+    hydrogen = 37659,
+    helium = 74564,
+    oxygen = 598608,
+    carbon = 949646300,
+    neon = 376968,
+    iron = 3298418600
 };
 
 typedef struct gravitationalObject
@@ -37,6 +34,47 @@ typedef struct gravitationalObject
     Vector3 velocity;
 } GravitationalObject;
 
+typedef struct CellEntry {
+    GravitationalObject* obj;
+    struct CellEntry* next;
+} CellEntry;
+
+typedef struct {
+    CellEntry* table[HASH_SIZE];
+} SpatialHash;
+
+// Hashfunktion für 3D-Zellenkoordinaten
+unsigned int hashCell(int x, int y, int z) {
+    unsigned int h = 73856093u * x ^ 19349663u * y ^ 83492791u * z;
+    return h % HASH_SIZE;
+}
+
+// Objekt einer Zelle hinzufügen
+void insertObject(SpatialHash* grid, GravitationalObject* obj) {
+    int cx = (int)floor(obj->position.x / CELL_SIZE);
+    int cy = (int)floor(obj->position.y / CELL_SIZE);
+    int cz = (int)floor(obj->position.z / CELL_SIZE);
+
+    unsigned int h = hashCell(cx, cy, cz);
+
+    CellEntry* entry = malloc(sizeof(CellEntry));
+    entry->obj = obj;
+    entry->next = grid->table[h];
+    grid->table[h] = entry;
+}
+
+void freeSpatialHash(SpatialHash* grid) {
+    for (int h = 0; h < HASH_SIZE; h++) {
+        CellEntry* entry = grid->table[h];
+        while (entry) {
+            CellEntry* next = entry->next;
+            free(entry);
+            entry = next;
+        }
+        grid->table[h] = NULL; // optional
+    }
+}
+
 typedef struct gList
 {
     GravitationalObject** gObjs;
@@ -47,33 +85,29 @@ float rand_range(float min, float max) {
     return min + (max - min) * (float)rand() / (float)RAND_MAX;
 }
 
-float getMass(enum element element){
-    return element * volume;
-}
-
 
 Color getColor(enum element element) {
     Color color;
     switch (element)
     {
-        case 37657223942950:
+        case hydrogen:
             return RAYWHITE;
-        case 74560465649000:
+        case helium:
             return RED;
-        case 598578120294500:
+        case oxygen:
             return BLUE;
-        case 949598739473500000:
+        case carbon:
             return GRAY;
-        case 89990:             //////////////////////////////////////////////////////////////////////////////zu masse ändern;
+        case neon:             //////////////////////////////////////////////////////////////////////////////zu masse ändern;
             return PINK;
-        case 787400000:
+        case iron:
             return LIGHTGRAY;
     }
 }
 
 void drawParticle(GravitationalObject *obj) {
 
-    DrawSphere((Vector3)obj->position, particleRadius, getColor(obj->element));
+    DrawSphere((Vector3)obj->position, PARTICLERADIUS, getColor(obj->element));
 
     if (DEBUG_MODE) {
         printf("[DRAW] %s: pos=(%.2f, %.2f, %.2f)\n",
@@ -109,47 +143,71 @@ void calcGravitation(ObjectList* oList) {
         oList->gObjs[i]->force.z = 0.0f;
     }
 
-    if (DEBUG_MODE) {
-        printf("[CALC] Kräfte zurückgesetzt.\n");
+    SpatialHash grid = {0};
+    for (int i = 0; i < oList->size; i++) {
+        insertObject(&grid, oList->gObjs[i]);
     }
 
-    for (int i = 0; i < oList->size; i++) {
-        for (int j = i + 1; j < oList->size; j++) {
-            float dX = oList->gObjs[j]->position.x - oList->gObjs[i]->position.x;
-            float dY = oList->gObjs[j]->position.y - oList->gObjs[i]->position.y;
-            float dZ = oList->gObjs[j]->position.z - oList->gObjs[i]->position.z;
-            float r2 = dX * dX + dY * dY + dZ * dZ;
-            float r = sqrt(r2);
+    for (int h = 0; h < HASH_SIZE; h++) {
+        CellEntry* entry = grid.table[h];
+        while (entry) {
+            GravitationalObject* a = entry->obj;
 
-            if (r > 1e-10f) {
-                float m1 = getMass(oList->gObjs[i]->element);
-                float m2 = getMass(oList->gObjs[j]->element);
-                float f = (G * m1 * m2) / r2;
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        unsigned int nh = hashCell(
+                            (int)floor(a->position.x / CELL_SIZE) + dx,
+                            (int)floor(a->position.y / CELL_SIZE) + dy,
+                            (int)floor(a->position.z / CELL_SIZE) + dz
+                        );
 
-                float forceX = f * (dX / r);
-                float forceY = f * (dY / r);
-                float forceZ = f * (dZ / r);
+                        CellEntry* neighbor = grid.table[nh];
+                        while (neighbor) {
+                            GravitationalObject* b = neighbor->obj;
+                            if (a == b) { 
+                                neighbor = neighbor->next; 
+                                continue; 
+                            }
 
-                oList->gObjs[i]->force.x += forceX;
-                oList->gObjs[i]->force.y += forceY;
-                oList->gObjs[i]->force.z += forceZ;
+                            float dX = b->position.x - a->position.x;
+                            float dY = b->position.y - a->position.y;
+                            float dZ = b->position.z - a->position.z;
+                            float r2 = dX*dX + dY*dY + dZ*dZ;
+                            float r = sqrtf(r2);
 
-                oList->gObjs[j]->force.x -= forceX;
-                oList->gObjs[j]->force.y -= forceY;
-                oList->gObjs[j]->force.z -= forceZ;
+                            if (r > 1e-10f) {
+                                float f = (G * a->element * b->element) / r2;
+                                float fx = f * (dX / r);
+                                float fy = f * (dY / r);
+                                float fz = f * (dZ / r);
 
-                if (DEBUG_MODE) {
-                    printf("[CALC] Gravitation %s <-> %s: Fx=%.4f, Fy=%.4f, Fz=%.4f, Abstand=%.2f\n", oList->gObjs[i]->name, oList->gObjs[j]->name, forceX, forceY, forceZ, r);
+                                a->force.x += fx;
+                                a->force.y += fy;
+                                a->force.z += fz;
+
+                                b->force.x -= fx;
+                                b->force.y -= fy;
+                                b->force.z -= fz;
+                            }
+
+                            neighbor = neighbor->next;
+                        }
+                    }
                 }
             }
+
+            entry = entry->next;
         }
     }
+
+    freeSpatialHash(&grid);
 }
 
 void moveObject(GravitationalObject *obj, float deltaTime) {
-    float aX = obj->force.x/(obj->element * volume);
-    float aY = obj->force.y/(obj->element * volume);
-    float aZ = obj->force.z/(obj->element * volume);
+    float aX = obj->force.x/obj->element;
+    float aY = obj->force.y/obj->element;
+    float aZ = obj->force.z/obj->element;
 
     obj->velocity.x += aX * deltaTime;
     obj->velocity.y += aY * deltaTime;
@@ -263,66 +321,61 @@ void removeObjectAtIndex(ObjectList* list, int index) {
 }
 
 void handleCollisions(ObjectList* list) {
+    SpatialHash grid = {0};
+
+    // 1. Objekte ins Grid einfügen
     for (int i = 0; i < list->size; i++) {
-        GravitationalObject* a = list->gObjs[i];
+        insertObject(&grid, list->gObjs[i]);
+    }
 
-        for (int j = i + 1; j < list->size; j++) {
-            GravitationalObject* b = list->gObjs[j];
+    // 2. Kollisionsprüfungen
+    for (int h = 0; h < HASH_SIZE; h++) {
+        CellEntry* entry = grid.table[h];
 
-            float dx = a->position.x - b->position.x;
-            float dy = a->position.y - b->position.y;
-            float dz = a->position.z - b->position.z;
-            float distance = sqrtf(dx*dx + dy*dy + dz*dz);
-            if (DEBUG_MODE) {
-                    printf("Checking collision between '%s' and '%s': distance = %.2f",
-                    a->name, b->name, distance);
+        while (entry) {
+            GravitationalObject* a = entry->obj;
+
+            // Nachbarn in dieser und angrenzenden Zellen prüfen
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+
+                        unsigned int nh = hashCell(
+                            (int)floor(a->position.x / CELL_SIZE) + dx,
+                            (int)floor(a->position.y / CELL_SIZE) + dy,
+                            (int)floor(a->position.z / CELL_SIZE) + dz
+                        );
+
+                        CellEntry* neighbor = grid.table[nh];
+                        while (neighbor) {
+                            GravitationalObject* b = neighbor->obj;
+                            if (a == b) { 
+                                neighbor = neighbor->next; 
+                                continue; 
+                            }
+
+                            // Kollisionscheck (wie in deinem Code, mit Distanz²)
+                            float dx = a->position.x - b->position.x;
+                            float dy = a->position.y - b->position.y;
+                            float dz = a->position.z - b->position.z;
+                            float distSq = dx*dx + dy*dy + dz*dz;
+
+                            if (distSq <= PARTICLERADIUS*PARTICLERADIUS) {
+                                // Kollisionsreaktion (dein Code hier)
+                            }
+
+                            neighbor = neighbor->next;
+                        }
+                    }
                 }
-            
-
-
-            if (distance <= particleRadius*2) {
-
-                Vector3 delta = { b->position.x - a->position.x,
-                  b->position.y - a->position.y,
-                  b->position.z - a->position.z };
-
-                float dist = sqrtf(delta.x*delta.x + delta.y*delta.y + delta.z*delta.z);
-                if (dist == 0.0f) dist = 1e-6f; // numerische Sicherheit
-
-                // Normalisierte Stoßrichtung
-                Vector3 n = { delta.x / dist, delta.y / dist, delta.z / dist };
-
-                // Relative Geschwindigkeit
-                Vector3 vRel = { a->velocity.x - b->velocity.x,
-                                a->velocity.y - b->velocity.y,
-                                a->velocity.z - b->velocity.z };
-
-                // Geschwindigkeit entlang der Stoßrichtung
-                float vDot = vRel.x*n.x + vRel.y*n.y + vRel.z*n.z;
-                if (vDot > 0) continue; // Objekte entfernen sich bereits
-
-                // Impuls ändern (vereinfachte 1:1 Masse)
-                float impulse = -2.0f * vDot / 2.0f;
-                a->velocity.x += impulse * n.x;
-                a->velocity.y += impulse * n.y;
-                a->velocity.z += impulse * n.z;
-                b->velocity.x -= impulse * n.x;
-                b->velocity.y -= impulse * n.y;
-                b->velocity.z -= impulse * n.z;
-
-                // Position minimal verschieben, damit sie sich nicht überlappen
-                float overlap = 2*particleRadius - dist;
-                a->position.x -= n.x * overlap / 2;
-                a->position.y -= n.y * overlap / 2;
-                a->position.z -= n.z * overlap / 2;
-                b->position.x += n.x * overlap / 2;
-                b->position.y += n.y * overlap / 2;
-                b->position.z += n.z * overlap / 2;
             }
+
+            entry = entry->next;
         }
     }
+    freeSpatialHash(&grid);
 }
-
+/*
 int makeInfoLabel(Rectangle* panel, int lineHeight, int length, const char* text) {
     Rectangle infoLabelBounds = { 
         panel->x + ((panel->width-length)/2), 
@@ -438,7 +491,7 @@ void handleGUI(ObjectList* objectList) {
         &panel, lineHeight, infoLength, "Create a custom object."
     ) + paddingTop;
 }
-
+*/
 void handleInput(ObjectList* objectList, Camera3D* camera) {
     if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
         Vector3 pos = GetMouseWorldPoint(camera, 100);
@@ -469,79 +522,5 @@ void handleInput(ObjectList* objectList, Camera3D* camera) {
                 firstPos.x, firstPos.y, newObj->mass, newObj->radius);
         }
     }*/
-}
-
-int main(){
-    const int windowSizeX = 1960;
-    const int windowSizeY = 1080;
-    volume = ((4/3)*PI*particleRadius*particleRadius);
-
-
-    InitWindow(windowSizeX, windowSizeY, "Gravitations-Simulation");
-    SetWindowState(FLAG_FULLSCREEN_MODE);
-
-    Camera3D camera = { 0 };
-    camera.position = (Vector3){ 100.0f, 100.0f, 10.0f };
-    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
-    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-    camera.fovy = 45.0f;
-    camera.projection = CAMERA_PERSPECTIVE;
-
-
-
-    ObjectList* objectList = createObjectList();
-
-    for(int i = 0; i <= 1000; i++){
-        Vector3 vec = (Vector3){rand_range(-1000,1000),rand_range(-1000,1000),rand_range(-1000,1000)};
-        GravitationalObject* obj = createRandomParticleAt(&vec);
-        addObjectList(obj, objectList);
-    }
-
-    //loop
-    float t_delta = 0;
-    float t_tick = 1.0f / 170.0f;
-    float t_temp = 0;
-
-    while(!WindowShouldClose()){
-        
-        t_delta = GetFrameTime();
-        t_temp += t_delta;
-
-        if (DEBUG_MODE) {
-            printf("---- Frame Start | deltaTime = %.5f ----\n", t_delta);
-        }
-        UpdateCamera(&camera, CAMERA_FREE);
-
-        handleInput(objectList, &camera);
-
-        while (t_temp >= t_tick) {
-            calcGravitation(objectList);
-            moveObjects(objectList, t_tick);
-            handleCollisions(objectList);
-            
-            t_temp -= t_tick;
-        }
-        
-        BeginDrawing();
-            ClearBackground(BLACK);
-            BeginMode3D(camera);
-                DrawGrid(200, 10.0f);
-                drawParticles(objectList);
-            EndMode3D();
-            handleGUI(objectList);
-        EndDrawing();
-
-        if (DEBUG_MODE) {
-            printf("---- Frame End --------------------------\n\n");
-        }
-       
-    }
-
-    //end
-    CloseWindow();
-
-    freeObjectList(objectList);
-
-    return 0;
 }
 

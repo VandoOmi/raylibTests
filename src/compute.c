@@ -25,7 +25,7 @@ GLuint createGravityComputeShader() {
     GLuint program = glCreateProgram();
     glAttachShader(program, shader);
     glLinkProgram(program);
-    glDeleteShader(shader); // shader not needed after linking
+    glDeleteShader(shader); 
 
     return program;
 }

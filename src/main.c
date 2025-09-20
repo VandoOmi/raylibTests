@@ -1,5 +1,6 @@
 #include <raylib.h>
 #include "particle.h"
+#include "settings.h"
 
 int main(){
     const int windowSizeX = 1960;
@@ -7,7 +8,7 @@ int main(){
 
 
     InitWindow(windowSizeX, windowSizeY, "Gravitations-Simulation");
-    SetWindowState(FLAG_FULLSCREEN_MODE);
+    //SetWindowState(FLAG_FULLSCREEN_MODE);
 
     Camera3D camera = { 0 };
     camera.position = (Vector3){ 100.0f, 100.0f, 10.0f };
@@ -20,7 +21,7 @@ int main(){
 
     ObjectList* objectList = createObjectList();
 
-    randomObjectsFor(1000, objectList, (Vector3){10, 10, 10});
+    randomObjectsFor(1000, objectList, (Vector3){100, 100, 100});
 
     //loop
     float t_delta = 0;
@@ -40,10 +41,9 @@ int main(){
         handleInput(objectList, &camera);
 
         while (t_temp >= t_tick) {
-            CalculateGravitation(objectList);
-            MoveParticles(objectList, t_tick);
+            ComputeGravitationWithShader(objectList, t_tick);
+            //MoveParticles(objectList, t_tick); // Already handled by shader
             CalculateCollision(objectList);
-            
             t_temp -= t_tick;
         }
         

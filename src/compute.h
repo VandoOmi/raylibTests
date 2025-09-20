@@ -1,12 +1,19 @@
 #ifndef COMPUTE_H
 #define COMPUTE_H
 
-#include <stdio.h>
-#include <stdlib.h>
+#define NOGDI
+#define NOUSER
 #include <raylib.h>
 #include <GL/gl3w.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-typedef struct GPUObject GPUObject;
+
+typedef struct GPUObject {
+	float position[3];
+	float velocity[3];
+	float mass;
+} GPUObject;
 
 GLuint createGravityComputeShader();
 

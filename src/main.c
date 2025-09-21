@@ -1,4 +1,8 @@
+// Avoid Win32 macro/type conflicts (e.g., CloseWindow) by limiting windows.h
+#define NOGDI
+#define NOUSER
 #include <raylib.h>
+#include <GL/gl3w.h>
 #include "particle.h"
 #include "settings.h"
 
@@ -10,6 +14,11 @@ int main(){
     InitWindow(windowSizeX, windowSizeY, "Gravitations-Simulation");
     //SetWindowState(FLAG_FULLSCREEN_MODE);
 
+    // Initialize OpenGL function loader (gl3w) AFTER the context is created
+    if (gl3wInit()) {
+        fprintf(stderr, "[ERROR] gl3wInit failed to initialize OpenGL loader.\n");
+    }
+
     Camera3D camera = { 0 };
     camera.position = (Vector3){ 100.0f, 100.0f, 10.0f };
     camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
@@ -20,30 +29,35 @@ int main(){
 
 
     ObjectList* objectList = createObjectList();
+    InitParticleRender();
 
-    randomObjectsFor(1000, objectList, (Vector3){100, 100, 100});
+    randomObjectsFor(2000, objectList, (Vector3){1000, 1000, 1000});
 
     //loop
     float t_delta = 0;
-    float t_tick = 1.0f / 170.0f;
+    float t_tick = 1.0f / 90.0f; // physics tick
     float t_temp = 0;
+    int frameCounter = 0;
 
     while(!WindowShouldClose()){
         
         t_delta = GetFrameTime();
         t_temp += t_delta;
 
-        if (DEBUG_MODE) {
-            printf("---- Frame Start | deltaTime = %.5f ----\n", t_delta);
-        }
         UpdateCamera(&camera, CAMERA_FREE);
 
         handleInput(objectList, &camera);
+        // Runtime toggles
+        if (IsKeyPressed(KEY_G)) SetUseGPU(!IsUseGPU());
+        if (IsKeyPressed(KEY_C)) SetCullingEnabled(!IsCullingEnabled());
 
-        while (t_temp >= t_tick) {
+        // At most one physics substep per frame
+        if (t_temp >= t_tick) {
             ComputeGravitationWithShader(objectList, t_tick);
-            //MoveParticles(objectList, t_tick); // Already handled by shader
-            CalculateCollision(objectList);
+            // Throttle collision checks (every 5 frames)
+            if ((frameCounter % 5) == 0) {
+                CalculateCollision(objectList);
+            }
             t_temp -= t_tick;
         }
         
@@ -51,19 +65,18 @@ int main(){
             ClearBackground(BLACK);
             BeginMode3D(camera);
                 DrawGrid(200, 10.0f);
-                DrawParticles(objectList);
+                DrawParticles(objectList, &camera);
             EndMode3D();
-            //handleGUI(objectList);
+            // HUD
+            DrawText(TextFormat("Mode: %s  Culling: %s  Objects: %d FPS: %.5i", IsUseGPU()?"GPU":"CPU", IsCullingEnabled()?"On":"Off", objectList->size, GetFPS()), 10, 10, 20, RAYWHITE);
         EndDrawing();
-        printf("FPS: %.5i\n", GetFPS());
 
-        if (DEBUG_MODE) {
-            printf("---- Frame End --------------------------\n\n");
-        }
+        frameCounter++;
        
     }
 
     //end
+    ShutdownParticleRender();
     CloseWindow();
 
     freeObjectList(objectList);

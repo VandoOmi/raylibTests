@@ -32,6 +32,16 @@
 				"."
 			],
 			"group": "build"
+		},
+		{
+			"label": "CMake Build",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"."
+			],
+			"group": "build"
 		}
 	],
 	"version": "2.0.0"

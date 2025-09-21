@@ -3,109 +3,139 @@
 #include "settings.h"
 
 
+int computeAvailable(void) {
+    // Ensure function pointers exist and version >= 4.3 for compute shaders
+    const GLubyte* versionStr = glGetString(GL_VERSION);
+    if (!versionStr) return 0;
+    int major = 0, minor = 0;
+    if (sscanf((const char*)versionStr, "%d.%d", &major, &minor) < 2) return 0;
+    int available = (major > 4) || (major == 4 && minor >= 3);
+    return available;
+}
+
 GLuint createGravityComputeShader() {
     const GLubyte* glVersion = glGetString(GL_VERSION);
-    if (DEBUG_MODE && glVersion) printf("[createGravityComputeShader] OpenGL Version: %s\n", glVersion);
-    if (DEBUG_MODE) printf("[createGravityComputeShader] Loading shader file...\n");
-    const char* computeShaderSrc = LoadFileText("shader/gravitation.comp");
-    if (DEBUG_MODE) printf("[createGravityComputeShader] Shader file loaded.\n");
+    char* computeShaderSrc = LoadFileText("shader/gravitation.comp");
+    if (!computeShaderSrc) {
+        printf("[createGravityComputeShader] ERROR: Could not load shader file at 'shader/gravitation.comp'.\n");
+        return 0;
+    }
     GLuint shader = glCreateShader(GL_COMPUTE_SHADER);
-    if (DEBUG_MODE) printf("[createGravityComputeShader] Shader object created: %u\n", shader);
     if (shader == 0) {
         printf("[createGravityComputeShader] ERROR: glCreateShader(GL_COMPUTE_SHADER) returned 0!\n");
+        UnloadFileText(computeShaderSrc);
+        return 0;
     }
-    glShaderSource(shader, 1, &computeShaderSrc, NULL);
+    const GLchar* const srcs[] = { (const GLchar*)computeShaderSrc };
+    glShaderSource(shader, 1, srcs, NULL);
     glCompileShader(shader);
-    if (DEBUG_MODE) printf("[createGravityComputeShader] Shader compiled. Checking for errors...\n");
     GLint success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if(!success) {
         char infoLog[512];
         glGetShaderInfoLog(shader, 512, NULL, infoLog);
-        printf("[createGravityComputeShader] ERROR: %s\n", infoLog);
+        glDeleteShader(shader);
+        UnloadFileText(computeShaderSrc);
+        return 0;
     } else {
-        if (DEBUG_MODE) printf("[createGravityComputeShader] Shader compiled successfully.\n");
     }
     GLuint program = glCreateProgram();
-    if (DEBUG_MODE) printf("[createGravityComputeShader] Program object created: %u\n", program);
+    if (program == 0) {
+        glDeleteShader(shader);
+        UnloadFileText(computeShaderSrc);
+        return 0;
+    }
     glAttachShader(program, shader);
     glLinkProgram(program);
-    if (DEBUG_MODE) printf("[createGravityComputeShader] Program linked. Deleting shader object...\n");
     glDeleteShader(shader);
-    if (DEBUG_MODE) printf("[createGravityComputeShader] Shader object deleted.\n", program);
+    UnloadFileText(computeShaderSrc);
+
+    // Check link success
+    GLint linkOK = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &linkOK);
+    if (!linkOK) {
+        char infoLog[512];
+        glGetProgramInfoLog(program, 512, NULL, infoLog);
+        glDeleteProgram(program);
+        return 0;
+    }
     return program;
 }
 
-void computeGravity(GPUObject* objects, int numObjects, float deltatime) {
-    if (DEBUG_MODE) printf("[computeGravity] Called with %d objects, deltaTime=%.6f\n", numObjects, deltatime);
+int computeGravity(GPUObject* objects, int numObjects, float deltatime) {
     static GLuint shaderProgram = 0; // Handle to the compute shader program
-    static GLuint ssbo = 0;          // Handle to the shader storage buffer object
+    static GLuint ssboIn = 0;        // Input buffer (binding = 0)
+    static GLuint ssboOut = 0;       // Output buffer (binding = 1)
     static int prevNumObjects = 0;   // Track previous number of objects for buffer reallocation
 
     // Create shader program if not already created
     if (shaderProgram == 0) {
-        if (DEBUG_MODE) printf("[computeGravity] Creating compute shader program...\n");
-        shaderProgram = createGravityComputeShader();
-        if (DEBUG_MODE) printf("[computeGravity] Shader program created: %u\n", shaderProgram);
-    }
-    if (DEBUG_MODE) printf("[computeGravity] After shader program creation.\n");
-    if (DEBUG_MODE) printf("[computeGravity] Before SSBO allocation/update.\n");
-
-    // Allocate or reallocate SSBO if number of objects changes
-    if (ssbo == 0 || prevNumObjects != numObjects) {
-        if (ssbo != 0) {
-            if (DEBUG_MODE) printf("[computeGravity] Deleting old SSBO...\n");
-            glDeleteBuffers(1, &ssbo);
-            ssbo = 0;
+        if (!computeAvailable()) {
+            return 0;
         }
-        if (DEBUG_MODE) printf("[computeGravity] Generating new SSBO for %d objects...\n", numObjects);
-        glGenBuffers(1, &ssbo);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+        shaderProgram = createGravityComputeShader();
+        if (shaderProgram == 0) {
+            return 0;
+        }
+    }
+
+    // Allocate or reallocate SSBOs if number of objects changes
+    if (ssboIn == 0 || ssboOut == 0 || prevNumObjects != numObjects) {
+        if (ssboIn != 0) { glDeleteBuffers(1, &ssboIn); ssboIn = 0; }
+        if (ssboOut != 0) { glDeleteBuffers(1, &ssboOut); ssboOut = 0; }
+        glGenBuffers(1, &ssboIn);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboIn);
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GPUObject) * numObjects, objects, GL_DYNAMIC_COPY);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+        glGenBuffers(1, &ssboOut);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboOut);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GPUObject) * numObjects, NULL, GL_DYNAMIC_COPY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         prevNumObjects = numObjects;
-        if (DEBUG_MODE) printf("[computeGravity] After SSBO allocation.\n");
     } else {
-        // Update buffer with new data if number of objects is unchanged
-        if (DEBUG_MODE) printf("[computeGravity] Updating SSBO with %d objects...\n", numObjects);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+        // Update input buffer with latest CPU data
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboIn);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(GPUObject) * numObjects, objects);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-        if (DEBUG_MODE) printf("[computeGravity] After SSBO update.\n");
     }
 
     // Set shader uniforms for simulation step
-    if (DEBUG_MODE) printf("[computeGravity] Setting uniforms and dispatching compute shader...\n");
     glUseProgram(shaderProgram);
-    if (DEBUG_MODE) printf("[computeGravity] After glUseProgram.\n");
     glUniform1f(glGetUniformLocation(shaderProgram, "deltaTime"), deltatime);
-    if (DEBUG_MODE) printf("[computeGravity] After setting deltaTime uniform.\n");
-    glUniform1f(glGetUniformLocation(shaderProgram, "G"), 6.67430e-11f);
-    if (DEBUG_MODE) printf("[computeGravity] After setting G uniform.\n");
+    glUniform1f(glGetUniformLocation(shaderProgram, "G"), 6.67430e-1f);
     glUniform1i(glGetUniformLocation(shaderProgram, "numObjects"), numObjects);
-    if (DEBUG_MODE) printf("[computeGravity] After setting numObjects uniform.\n");
+    glUniform1f(glGetUniformLocation(shaderProgram, "softening"), 1e-6f);
+    glUniform1f(glGetUniformLocation(shaderProgram, "maxSpeed"), 1000.0f);
+    glUniform1f(glGetUniformLocation(shaderProgram, "maxPos"), 100000.0f);
+
+    // Bind buffers to match compute shader bindings
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssboIn);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssboOut);
 
     // Dispatch compute shader with enough workgroups for all objects
     glDispatchCompute((numObjects + 255) / 256, 1, 1);
-    if (DEBUG_MODE) printf("[computeGravity] After glDispatchCompute.\n");
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    if (DEBUG_MODE) printf("[computeGravity] After glMemoryBarrier.\n");
-    if (DEBUG_MODE) printf("[computeGravity] Compute shader dispatched.\n");
+    // Ensure writes to SSBO are visible before mapping
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
 
-    // Read back results from GPU to CPU
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    if (DEBUG_MODE) printf("[computeGravity] After glBindBuffer for readback.\n");
+    // Read back results from GPU to CPU (from output buffer)
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboOut);
     GPUObject* ptr = (GPUObject*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-    if (DEBUG_MODE) printf("[computeGravity] After glMapBuffer.\n");
     if (ptr) {
-        if (DEBUG_MODE) printf("[computeGravity] ptr is valid, copying data.\n");
-        for (int i = 0; i < numObjects; i++) objects[i] = ptr[i];
+        for (int i = 0; i < numObjects; i++) {
+            GPUObject o = ptr[i];
+            // Basic NaN guard on CPU side as a last resort
+            if (!(o.position[0] == o.position[0])) { o.position[0] = 0.0f; }
+            if (!(o.position[1] == o.position[1])) { o.position[1] = 0.0f; }
+            if (!(o.position[2] == o.position[2])) { o.position[2] = 0.0f; }
+            if (!(o.velocity[0] == o.velocity[0])) { o.velocity[0] = 0.0f; }
+            if (!(o.velocity[1] == o.velocity[1])) { o.velocity[1] = 0.0f; }
+            if (!(o.velocity[2] == o.velocity[2])) { o.velocity[2] = 0.0f; }
+            objects[i] = o;
+        }
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        if (DEBUG_MODE) printf("[computeGravity] After glUnmapBuffer.\n");
     } else {
-        if (DEBUG_MODE) printf("[computeGravity] ERROR: glMapBuffer returned NULL!\n");
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    if (DEBUG_MODE) printf("[computeGravity] End of function.\n");
+    return 1;
 }

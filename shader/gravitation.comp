@@ -1,0 +1,86 @@
+#version 430
+
+// Compute shader for N-body gravitation
+// Memory layout must match C struct GPUObject in compute.h
+// C:   float position[3]; float velocity[3]; float mass;
+// GLSL: vec3  position;   vec3  velocity;   float mass;
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+struct Object {
+    vec3 position;
+    vec3 velocity;
+    float mass;
+};
+
+// Separate input/output buffers to avoid read-after-write hazards
+layout(std430, binding = 0) readonly buffer ObjectBufferIn {
+    Object inObjects[];
+};
+layout(std430, binding = 1) writeonly buffer ObjectBufferOut {
+    Object outObjects[];
+};
+
+uniform float deltaTime;
+uniform float G;
+uniform int   numObjects;
+uniform float softening; // small epsilon to avoid singularities
+uniform float maxSpeed;  // clamp maximum speed
+uniform float maxPos;    // clamp maximum position radius
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= uint(numObjects)) return;
+
+    // Read current state
+    Object me = inObjects[i];
+    vec3 force = vec3(0.0);
+
+    // Tiled accumulation with shared memory to reduce global loads
+    const uint GROUP_SIZE = 256u;
+    uint localId = gl_LocalInvocationID.x;
+    uint groupCount = uint((numObjects + int(GROUP_SIZE) - 1) / int(GROUP_SIZE));
+
+    shared vec4 tilePosMass[GROUP_SIZE]; // xyz = position, w = mass
+
+    for (uint tile = 0u; tile < groupCount; tile++) {
+        uint j = tile * GROUP_SIZE + localId;
+        if (j < uint(numObjects)) {
+            Object o = inObjects[j];
+            tilePosMass[localId] = vec4(o.position, o.mass);
+        } else {
+            tilePosMass[localId] = vec4(0.0);
+        }
+        barrier(); // ensure tile loaded
+
+        uint tileCount = uint(min(int(GROUP_SIZE), numObjects - int(tile * GROUP_SIZE)));
+        for (uint k = 0u; k < tileCount; k++) {
+            uint idx = tile * GROUP_SIZE + k;
+            if (idx == i) continue;
+            vec3 dp = tilePosMass[k].xyz - me.position;
+            float r2 = dot(dp, dp) + softening;
+            float r = sqrt(r2);
+            float f = (G * me.mass * tilePosMass[k].w) / r2;
+            force += f * (dp / r);
+        }
+        barrier();
+    }
+
+    // Integrate (semi-implicit Euler)
+    vec3 accel = force / max(me.mass, 1e-8);
+    me.velocity += accel * deltaTime;
+    me.position += me.velocity * deltaTime;
+
+    // Sanitize values to avoid rendering artifacts
+    if (any(isnan(me.velocity))) me.velocity = vec3(0.0);
+    if (any(isnan(me.position))) me.position = vec3(0.0);
+
+    // Clamp velocity and position magnitudes
+    float vlen = length(me.velocity);
+    if (vlen > maxSpeed) me.velocity *= (maxSpeed / vlen);
+    float plen = length(me.position);
+    if (plen > maxPos) me.position *= (maxPos / plen);
+
+    // Write back
+    outObjects[i] = me;
+}

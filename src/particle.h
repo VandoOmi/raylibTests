@@ -47,7 +47,15 @@ void MoveParticles(ObjectList* objList, float deltaTime);
 void CalculateCollision(ObjectList* objList);
 
 //Drawing
-void DrawParticles(ObjectList* objList);
+void DrawParticles(ObjectList* objList, const Camera3D* camera);
+void InitParticleRender(void);
+void ShutdownParticleRender(void);
+
+// Runtime toggles
+void SetUseGPU(int enabled);
+int  IsUseGPU(void);
+void SetCullingEnabled(int enabled);
+int  IsCullingEnabled(void);
 
 //Util
 float rand_range(float min, float max);

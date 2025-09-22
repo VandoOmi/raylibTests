@@ -1,10 +1,12 @@
 // Avoid Win32 macro/type conflicts (e.g., CloseWindow) by limiting windows.h
 #define NOGDI
 #define NOUSER
-#include <raylib.h>
-#include <GL/gl3w.h>
-#include "particle.h"
-#include "settings.h"
+#include "Calculations.h"
+#include "Draw.h"
+#include "InputHandler.h"
+
+#define PARTICLERADIUS 1 // in km
+
 
 int main(){
     const int windowSizeX = 1960;
@@ -56,7 +58,7 @@ int main(){
             ComputeGravitationWithShader(objectList, t_tick);
             // Throttle collision checks (every 5 frames)
             if ((frameCounter % 5) == 0) {
-                CalculateCollision(objectList);
+                CalculateCollision(objectList, PARTICLERADIUS);
             }
             t_temp -= t_tick;
         }

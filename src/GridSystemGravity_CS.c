@@ -41,7 +41,7 @@ GLuint createGravityComputeShader() {
     return program;
 }
 
-int computeGravity(GPUObject* objects, int numObjects, GPUGridCell* cells, int numCells, unsigned int* objIndices, int numObjIndices, Vector3 gridSize, float cellSize, float deltatime, float G) {
+int computeGridGravity(GPUObject* objects, int numObjects, GPUGridCell* cells, int numCells, unsigned int* objIndices, int numObjIndices, Vector3 gridSize, float cellSize, float deltatime, float G) {
     static GLuint shaderProgram = 0;
     static GLuint ssboObjects = 0;
     static GLuint ssboCells = 0;

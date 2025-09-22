@@ -103,9 +103,9 @@ int computeGravity(GPUObject* objects, int numObjects, float deltatime) {
     // Set shader uniforms for simulation step
     glUseProgram(shaderProgram);
     glUniform1f(glGetUniformLocation(shaderProgram, "deltaTime"), deltatime);
-    glUniform1f(glGetUniformLocation(shaderProgram, "G"), 6.67430e-1f);
+    glUniform1f(glGetUniformLocation(shaderProgram, "G"), 6.67430e-11f);
     glUniform1i(glGetUniformLocation(shaderProgram, "numObjects"), numObjects);
-    glUniform1f(glGetUniformLocation(shaderProgram, "softening"), 1e-6f);
+    glUniform1f(glGetUniformLocation(shaderProgram, "softening"), 0);
     glUniform1f(glGetUniformLocation(shaderProgram, "maxSpeed"), 1000.0f);
     glUniform1f(glGetUniformLocation(shaderProgram, "maxPos"), 100000.0f);
 

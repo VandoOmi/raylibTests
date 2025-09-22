@@ -1,12 +1,16 @@
 #ifndef PARTICLE_H
 #define PARTICLE_H
 
-#include <raylib.h> 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+
 #include "settings.h"
 
+// Forward declare types before including grid/compute headers
+typedef struct GravitationalObject GravitationalObject;
+typedef struct ObjectList ObjectList;
+
+#include "compute.h"
+#include "GridSystem.h"
+#include "GridSystemGravity_CS.h"
 
 enum element{
     hydrogen = 37659,

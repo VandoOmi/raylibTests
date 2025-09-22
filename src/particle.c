@@ -1,8 +1,9 @@
-// Forward declarations and type definitions
-#include "compute.h"
-#include "particle.h"
-#include <raymath.h>
 
+#include "particle.h"
+#include "GridSystem.h"
+
+// Universal gravitational constant
+const float G = 6.67430e-11f;
 
 // Runtime flags for GPU compute and culling
 static int gUseGPU = 1;         // default: try GPU
@@ -17,20 +18,23 @@ int IsCullingEnabled(void) { return gCullingEnabled; }
 void ComputeGravitationWithShader(ObjectList* oList, float deltaTime) {
     if (oList->size == 0) return;
     if (!gUseGPU) {
-        // CPU path
         CalculateGravitation(oList);
         MoveParticles(oList, deltaTime);
         return;
     }
-    // Allocate a temporary GPUObject array
-    GPUObject* gpuObjs = malloc(sizeof(GPUObject) * oList->size);
-    if (!gpuObjs) {
-        // Fallback on OOM
+    // --- New grid-based GPU path ---
+    float cellSize = 20.f;
+    Grid* grid = getGrid(oList, cellSize);
+    if (!grid) {
         CalculateGravitation(oList);
         MoveParticles(oList, deltaTime);
         return;
     }
-    for (int i = 0; i < oList->size; i++) {
+    int numObjects = oList->size;
+    int numCells = (int)(grid->gridSize.x * grid->gridSize.y * grid->gridSize.z);
+    // Prepare GPUObject array
+    GPUObject* gpuObjs = malloc(sizeof(GPUObject) * numObjects);
+    for (int i = 0; i < numObjects; i++) {
         GravitationalObject* obj = oList->gObjs[i];
         gpuObjs[i].position[0] = obj->position.x;
         gpuObjs[i].position[1] = obj->position.y;
@@ -40,18 +44,31 @@ void ComputeGravitationWithShader(ObjectList* oList, float deltaTime) {
         gpuObjs[i].velocity[2] = obj->velocity.z;
         gpuObjs[i].mass = (float)obj->element;
     }
-    // Run the compute shader if available; fall back to CPU if it fails
-    int ok = computeGravity(gpuObjs, oList->size, deltaTime);
+    // Prepare GPUGridCell and object index arrays
+    extern void flattenGridForGPU(const Grid* grid, GPUGridCell** outCells, int* outCellCount, unsigned int** outObjIndices, int* outObjIndexCount, ObjectList* objList);
+    GPUGridCell* gpuCells = NULL;
+    unsigned int* objIndices = NULL;
+    int objIndexCount = 0, cellCount = 0;
+    flattenGridForGPU(grid, &gpuCells, &cellCount, &objIndices, &objIndexCount, oList);
+    // Call the new computeGravity
+    int ok = computeGravity(
+        gpuObjs, numObjects,
+        gpuCells, cellCount,
+        objIndices, objIndexCount,
+        grid->gridSize, cellSize, deltaTime, G
+    );
     if (!ok) {
         if (DEBUG_MODE) printf("[ComputeGravitationWithShader] Falling back to CPU path.\n");
-        // CPU path: compute forces and move particles
         CalculateGravitation(oList);
         MoveParticles(oList, deltaTime);
         free(gpuObjs);
+        free(gpuCells);
+        free(objIndices);
+        freeGrid(grid);
         return;
     }
     // Copy results back to GravitationalObject
-    for (int i = 0; i < oList->size; i++) {
+    for (int i = 0; i < numObjects; i++) {
         GravitationalObject* obj = oList->gObjs[i];
         obj->position.x = gpuObjs[i].position[0];
         obj->position.y = gpuObjs[i].position[1];
@@ -61,6 +78,9 @@ void ComputeGravitationWithShader(ObjectList* oList, float deltaTime) {
         obj->velocity.z = gpuObjs[i].velocity[2];
     }
     free(gpuObjs);
+    free(gpuCells);
+    free(objIndices);
+    freeGrid(grid);
 }
 
 // Universal gravitational constant

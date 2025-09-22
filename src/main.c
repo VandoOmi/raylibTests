@@ -31,7 +31,7 @@ int main(){
     ObjectList* objectList = createObjectList();
     InitParticleRender();
 
-    randomObjectsFor(4000, objectList, (Vector3){1000, 1000, 1000});
+    randomObjectsFor(100000, objectList, (Vector3){10000, 10000, 10000});
 
     //loop
     float t_delta = 0;

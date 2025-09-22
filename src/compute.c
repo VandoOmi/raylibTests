@@ -1,6 +1,5 @@
 
 #include "compute.h"
-#include "settings.h"
 
 
 int computeAvailable(void) {

@@ -3,10 +3,8 @@
 
 #define NOGDI
 #define NOUSER
-#include <raylib.h>
 #include <GL/gl3w.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "settings.h"
 
 
 // std430 layout alignment:

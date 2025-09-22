@@ -3,11 +3,6 @@
 
 
 #include "settings.h"
-
-// Forward declare types before including grid/compute headers
-typedef struct GravitationalObject GravitationalObject;
-typedef struct ObjectList ObjectList;
-
 #include "compute.h"
 #include "GridSystem.h"
 #include "GridSystemGravity_CS.h"
@@ -41,25 +36,6 @@ void freeObjectList(ObjectList* objList);
 void randomObjectsFor(int count, ObjectList* objList, Vector3 room);
 GravitationalObject* createRandomParticleAt(Vector3* pos);
 
-// Input Prossesing
-void handleInput(ObjectList* objList, Camera3D* camera);
-
-//Changing Data
-void CalculateGravitation(ObjectList* objList);
-void ComputeGravitationWithShader(ObjectList* objList, float deltaTime);
-void MoveParticles(ObjectList* objList, float deltaTime);
-void CalculateCollision(ObjectList* objList);
-
-//Drawing
-void DrawParticles(ObjectList* objList, const Camera3D* camera);
-void InitParticleRender(void);
-void ShutdownParticleRender(void);
-
-// Runtime toggles
-void SetUseGPU(int enabled);
-int  IsUseGPU(void);
-void SetCullingEnabled(int enabled);
-int  IsCullingEnabled(void);
 
 //Util
 float rand_range(float min, float max);

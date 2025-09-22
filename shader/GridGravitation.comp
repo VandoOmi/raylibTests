@@ -1,0 +1,78 @@
+#version 430
+
+struct GPUObject {
+	vec3 position;
+	float _padPos;
+	vec3 velocity;
+	float _padVel;
+	float mass;
+	float _padTail[3];
+};
+
+struct GPUGridCell {
+	vec3 center;
+	float mass;
+	uint objectStart;
+	uint objectCount;
+	uvec2 _pad;
+};
+
+layout(std430, binding = 0) buffer Objects {
+	GPUObject objects[];
+};
+
+layout(std430, binding = 1) buffer GridCells {
+	GPUGridCell cells[];
+};
+
+layout(std430, binding = 2) buffer ObjectIndices {
+	uint objectIndices[];
+};
+
+uniform float deltaTime;
+uniform float G;
+uniform uvec3 gridSize;
+uniform float cellSize;
+
+void main() {
+	uint id = gl_GlobalInvocationID.x;
+	if (id >= objects.length()) return;
+
+	GPUObject obj = objects[id];
+	vec3 force = vec3(0);
+
+	// Compute which cell this object is in
+	ivec3 cellCoord = ivec3(floor(obj.position / cellSize));
+	uint nx = gridSize.x, ny = gridSize.y, nz = gridSize.z;
+	uint myCellIdx = uint(cellCoord.x + nx * (cellCoord.y + ny * cellCoord.z));
+
+	// 1. Gravity from all other cells (use cell mass/center)
+	for (uint i = 0; i < cells.length(); ++i) {
+		if (i == myCellIdx || cells[i].mass == 0.0) continue;
+		vec3 dir = cells[i].center - obj.position;
+		float distSqr = max(dot(dir, dir), 1.0f);
+		float dist = sqrt(distSqr);
+		force += G * obj.mass * cells[i].mass * dir / (distSqr * dist);
+	}
+
+	// 2. Gravity from all other objects in my cell (skip self)
+	GPUGridCell myCell = cells[myCellIdx];
+	for (uint j = 0; j < myCell.objectCount; ++j) {
+		uint otherIdx = objectIndices[myCell.objectStart + j];
+		if (otherIdx == id) continue;
+		GPUObject other = objects[otherIdx];
+		vec3 dir = other.position - obj.position;
+		float distSqr = max(dot(dir, dir), 1.0f);
+		float dist = sqrt(distSqr);
+		force += G * obj.mass * other.mass * dir / (distSqr * dist);
+	}
+
+	// Integrate velocity and position
+	vec3 accel = force / obj.mass;
+	obj.velocity += accel * deltaTime;
+	obj.position += obj.velocity * deltaTime;
+
+	// Write back
+	objects[id].position = obj.position;
+	objects[id].velocity = obj.velocity;
+}

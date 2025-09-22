@@ -5,6 +5,13 @@
 #define NOUSER
 #include <GL/gl3w.h>
 #include "settings.h"
+#include "particle.h"
+
+typedef struct GPUObject {
+    float position[3]; float _padPos;   // 16 bytes
+    float velocity[3]; float _padVel;   // 16 bytes
+    float mass;        float _padTail[3]; // 16 bytes
+} GPUObject;
 
 typedef struct GPUGridCell {
     float center[3];      // Center of mass of the cell
@@ -15,9 +22,17 @@ typedef struct GPUGridCell {
 } GPUGridCell;
 
 // Flattens the grid for GPU upload. Allocates arrays, returns their sizes.
-void flattenGridForGPU(const Grid* grid, GPUGridCell** outCells, int* outCellCount, unsigned int** outObjIndices, int* outObjIndexCount, ObjectList* objList);
+void flattenGridForGPU(
+    const Grid* grid, 
+    GPUGridCell** outCells, 
+    int* outCellCount, 
+    unsigned int** outObjIndices, 
+    int* outObjIndexCount, 
+    ObjectList* objList
+);
 
 GLuint createGravityComputeShader();
+
 int computeGravity(
     GPUObject* objects, int numObjects,
     GPUGridCell* cells, int numCells,
